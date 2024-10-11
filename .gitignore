@@ -1,5 +1,5 @@
-# Prerequisites
-*.d
+.DS_Store
+.vscode
 
 # Compiled Object files
 *.slo
@@ -15,16 +15,7 @@
 *.so
 *.dylib
 *.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
+*.dSYM
 
 # Executables
 *.exe

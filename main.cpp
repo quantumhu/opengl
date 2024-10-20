@@ -6,36 +6,33 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+// #include <glm/gtx/string_cast.hpp>  // for glm::to_string
 
 #include <iostream>
 #include <vector>
-#include <map>
 
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
-
-float mix_percent = 0.2f;
 
 // vertex shader is special because it receives vertex data as its input
 // to define how the vertex data is organized, we specify location
 // setting the location in GLSL directly saves OpenGL some work of figuring it out with `glGetAttribLocation`
 const char *vertexShaderSource = "#version 330 core\n"
         "layout (location = 0) in vec3 aPos;\n"
-        "layout (location = 1) in vec3 aColor;\n"
-        "layout (location = 2) in vec2 aTexCoord;\n"
+        "layout (location = 1) in vec2 aTexCoord;\n"
         "out vec3 ourColor;\n"
         "out vec2 TexCoord;\n"
-        "uniform mat4 transform;\n"
+        "uniform mat4 model;\n"
+        "uniform mat4 view;\n"
+        "uniform mat4 projection;\n"
         "void main()\n"
         "{\n"
-        " gl_Position = transform * vec4(aPos, 1.0);\n"
-        " ourColor = aColor;\n"
+        " gl_Position = projection * view * model * vec4(aPos, 1.0);\n"
         " TexCoord = aTexCoord;\n"
         "}";
 
 const char *fragmentShaderSource = "#version 330 core\n"
         "out vec4 FragColor;\n"
-        "in vec3 ourColor;\n"
         "in vec2 TexCoord;\n"
         "uniform sampler2D texture1;\n"
         "uniform sampler2D texture2;\n"
@@ -50,8 +47,83 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     glViewport(0, 0, width, height);
 }
 
+namespace Camera
+{
+    glm::vec3 pos = glm::vec3(0.0f, 0.0f, 5.0f);
+    glm::vec3 frontVec = glm::vec3(0.0f, 0.0f, -1.0f);
+    glm::vec3 upVec = glm::vec3(0.0f, 1.0f, 0.0f);
+    const float speed = 2.5f;
+    float zoom_level = 45.0f;
+    const float window_ratio = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT;
+
+    glm::mat4 projectionMatrix = glm::perspective(glm::radians(zoom_level), window_ratio, 0.1f, 100.0f);
+
+    void mouse_callback(GLFWwindow* window, double xpos, double ypos)
+    {
+        static double lastX = xpos;
+        static double lastY = ypos;
+        static float sensitivityY = 0.003f;
+        static float sensitivityX = sensitivityY / window_ratio;
+
+        frontVec += glm::vec3(
+                              (xpos - lastX) * sensitivityX,
+                              (lastY - ypos) * sensitivityY, 
+                              0
+                             );
+        lastX = xpos;
+        lastY = ypos;
+    }
+
+    void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+    {
+        zoom_level -= (float)yoffset;
+        if (zoom_level < 1.0f)
+        {
+            zoom_level = 1.0f;
+        }
+        else if (zoom_level > 45.0f)
+        {
+            zoom_level = 45.0f;
+        }
+        projectionMatrix = glm::perspective(glm::radians(zoom_level), window_ratio, 0.1f, 100.0f);
+    }
+
+    glm::mat4 get_view_matrix()
+    {
+        return glm::lookAt(pos, pos + frontVec, upVec);
+    }
+
+    void W(float deltaTime)
+    {
+        pos += speed * deltaTime * frontVec;
+    }
+
+    void A(float deltaTime)
+    {
+        pos -= glm::normalize(glm::cross(frontVec, upVec)) * speed * deltaTime;
+    }
+
+    void S(float deltaTime)
+    {
+        pos -= speed * deltaTime * frontVec;
+    }
+
+    void D(float deltaTime)
+    {
+        pos += glm::normalize(glm::cross(frontVec, upVec)) * speed * deltaTime;
+    }
+};
+
+float mix_percent = 0.2f;
+
 void processInput(GLFWwindow *window)
 {
+    static float deltaTime = 0.0f;
+    static float lastFrame = 0.0f;
+    float currentFrame = glfwGetTime();
+    deltaTime = currentFrame - lastFrame;
+    lastFrame = currentFrame;
+
     if(glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS ||  glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
     {
         glfwSetWindowShouldClose(window, true);
@@ -63,6 +135,23 @@ void processInput(GLFWwindow *window)
     else if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
     {
         if (mix_percent > 0.0f) mix_percent -= 0.01f;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+    {
+        Camera::W(deltaTime);
+    }
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+    {
+        Camera::S(deltaTime);
+    }
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+    {
+        Camera::A(deltaTime);
+    }
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+    {
+        Camera::D(deltaTime);
     }
 }
 
@@ -147,6 +236,21 @@ class ShaderHelper
             return glGetUniformLocation(m_shaderProgram, name);
         }
 
+        void set_uniform(const char *name, GLint i)
+        {
+            glUniform1i(get_uniform_location(name), i);
+        }
+
+        void set_uniform(const char *name, GLfloat f)
+        {
+            glUniform1f(get_uniform_location(name), f);
+        }
+
+        void set_uniform_matrix4(const char *name, GLsizei count, GLboolean transpose, const GLfloat *value)
+        {
+            glUniformMatrix4fv(get_uniform_location(name), count, transpose, value);
+        }
+
         unsigned int load_texture(const char *filename, bool transparent)
         {
             int width, height, nrChannels;
@@ -193,6 +297,11 @@ GLFWwindow* window_setup()
     }
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+    // camera setup
+    glfwSetCursorPosCallback(window, Camera::mouse_callback);
+    glfwSetScrollCallback(window, Camera::scroll_callback);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
@@ -207,21 +316,64 @@ GLFWwindow* window_setup()
 
 int main()
 {
-
     GLFWwindow *window = window_setup();
     if (window == nullptr) return 1;
 
     float vertices[] = {
-        // positions         colors             texture coords
-         0.5f,  0.5f, 0.0f,  1.0f, 0.0f, 0.0f,  2.0f, 2.0f,
-         0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,  2.0f, 0.0f,
-        -0.5f, -0.5f, 0.0f,  0.0f, 0.0f, 1.0f,  0.0f, 0.0f,  
-        -0.5f,  0.5f, 0.0f,  1.0f, 1.0f, 0.0f,  0.0f, 2.0f
+        -0.5f, -0.5f, -0.5f, 0.0f, 0.0f,
+        0.5f, -0.5f, -0.5f, 1.0f, 0.0f,
+        0.5f, 0.5f, -0.5f, 1.0f, 1.0f,
+        0.5f, 0.5f, -0.5f, 1.0f, 1.0f,
+        -0.5f, 0.5f, -0.5f, 0.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f, 0.0f, 0.0f,
+
+        -0.5f, -0.5f, 0.5f, 0.0f, 0.0f,
+        0.5f, -0.5f, 0.5f, 1.0f, 0.0f,
+        0.5f, 0.5f, 0.5f, 1.0f, 1.0f,
+        0.5f, 0.5f, 0.5f, 1.0f, 1.0f,
+        -0.5f, 0.5f, 0.5f, 0.0f, 1.0f,
+        -0.5f, -0.5f, 0.5f, 0.0f, 0.0f,
+
+        -0.5f, 0.5f, 0.5f, 1.0f, 0.0f,
+        -0.5f, 0.5f, -0.5f, 1.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
+        -0.5f, -0.5f, 0.5f, 0.0f, 0.0f,
+        -0.5f, 0.5f, 0.5f, 1.0f, 0.0f,
+
+        0.5f, 0.5f, 0.5f, 1.0f, 0.0f,
+        0.5f, 0.5f, -0.5f, 1.0f, 1.0f,
+        0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
+        0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
+        0.5f, -0.5f, 0.5f, 0.0f, 0.0f,
+        0.5f, 0.5f, 0.5f, 1.0f, 0.0f,
+
+        -0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
+        0.5f, -0.5f, -0.5f, 1.0f, 1.0f,
+        0.5f, -0.5f, 0.5f, 1.0f, 0.0f,
+        0.5f, -0.5f, 0.5f, 1.0f, 0.0f,
+        -0.5f, -0.5f, 0.5f, 0.0f, 0.0f,
+        -0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
+        
+        -0.5f, 0.5f, -0.5f, 0.0f, 1.0f,
+        0.5f, 0.5f, -0.5f, 1.0f, 1.0f,
+        0.5f, 0.5f, 0.5f, 1.0f, 0.0f,
+        0.5f, 0.5f, 0.5f, 1.0f, 0.0f,
+        -0.5f, 0.5f, 0.5f, 0.0f, 0.0f,
+        -0.5f, 0.5f, -0.5f, 0.0f, 1.0f
     };
 
-    unsigned int indices[] = {
-        0, 1, 3,
-        1, 2, 3,
+    glm::vec3 cubePositions[] = {
+        glm::vec3( 0.0f, 0.0f, 0.0f),
+        glm::vec3( 2.0f, 5.0f, -15.0f),
+        glm::vec3(-1.5f, -2.2f, -2.5f),
+        glm::vec3(-3.8f, -2.0f, -12.3f),
+        glm::vec3( 2.4f, -0.4f, -3.5f),
+        glm::vec3(-1.7f, 3.0f, -7.5f),
+        glm::vec3( 1.3f, -2.0f, -2.5f),
+        glm::vec3( 1.5f, 2.0f, -2.5f),
+        glm::vec3( 1.5f, 0.2f, -1.5f),
+        glm::vec3(-1.3f, 1.0f, -1.5f)
     };
 
     ShaderHelper sh;
@@ -234,8 +386,8 @@ int main()
     unsigned int texture2 = sh.load_texture("awesomeface.png", true);
 
     sh.use();
-    glUniform1i(sh.get_uniform_location("texture1"), 0);
-    glUniform1i(sh.get_uniform_location("texture2"), 1);
+    sh.set_uniform("texture1", 0);
+    sh.set_uniform("texture2", 1);
 
     // things bound when VAO is bound are attached to that object
     unsigned int VAO;
@@ -252,14 +404,6 @@ int main()
     // copy our data into a buffer for OpenGL
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-    unsigned int EBO;
-    glGenBuffers(1, &EBO);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-    // When you unbind EBO, make sure to unbind VAO first so you don't unbind EBO from the VAO
-
     // vertex attribute is an attribute unique to each vector
     // first arg is the # of the vertex attribute 
     // second arg is the size of the vertex attribute, related to third arg (datatype)
@@ -268,32 +412,25 @@ int main()
     //   if we know it is tightly packed we can pass 0 to let opengl figure out the stride
     // sixth arg is the offset of where the vertex attribute data begins in the buffer
     // THE VBO BOUND TO GL_ARRAY_BUFFER IS THE ONE OPENGL uses for vertex data
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
     
     // vertex attribute are disabled by default
     glEnableVertexAttribArray(0);
 
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3*sizeof(float)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3*sizeof(float)));
     glEnableVertexAttribArray(1);
 
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6*sizeof(float)));
-    glEnableVertexAttribArray(2);
-
-    // don't need to useProgram when getting uniform location, but we do need it when updating
-    // int vertexColorLocation = sh.get_uniform_location("ourColor");
-
-    glm::mat4 trans;
+    glEnable(GL_DEPTH_TEST);
 
     while(!glfwWindowShouldClose(window))
     {
         processInput(window);
 
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        trans = glm::mat4(1.0f);
-        trans = glm::rotate(trans, (float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f));
-        trans = glm::translate(trans, glm::vec3(0.5f, -0.5f, 0.0f));
+        sh.set_uniform_matrix4("projection", 1, GL_FALSE, glm::value_ptr(Camera::projectionMatrix));
+        sh.set_uniform("mixU", mix_percent);
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, texture1);
@@ -302,27 +439,23 @@ int main()
 
         sh.use();
 
-        // second arg is count, third arg is whether to transpose
-        // fourth arg is because glm and opengl have different data formats so we must transform
-        glUniformMatrix4fv(sh.get_uniform_location("transform"), 1, GL_FALSE, glm::value_ptr(trans));
-        glUniform1f(sh.get_uniform_location("mixU"), mix_percent);
-        
+        glm::mat4 view = Camera::get_view_matrix();
+        sh.set_uniform_matrix4("view", 1, GL_FALSE, glm::value_ptr(view));
+
         glBindVertexArray(VAO);
-        // first arg is number of indices (values) in EBO (may not be equal to vertices), second arg is offset in EBO (has to be offset in bytes not count)
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-        trans = glm::mat4(1.0f);
-        trans = glm::translate(trans, glm::vec3(-0.5, 0.5f, 0.0f));
-        trans = glm::scale(trans, glm::vec3(sin(glfwGetTime())));
-        
-        glUniformMatrix4fv(sh.get_uniform_location("transform"), 1, GL_FALSE, glm::value_ptr(trans));
-
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        for (unsigned int i = 0; i < 10; i++)
+        {
+            glm::mat4 model = glm::mat4(1.0f);
+            model = glm::translate(model, cubePositions[i]);
+            float angle = 20.0f * i;
+            model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+            sh.set_uniform_matrix4("model", 1, GL_FALSE, glm::value_ptr(model));
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+        }
         glBindVertexArray(0);
 
         glfwPollEvents();
         glfwSwapBuffers(window);
-        
     }
 
     glfwTerminate();

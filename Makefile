@@ -11,7 +11,7 @@ CPP_SOURCES = main.cpp stb_image.cpp
 OBJECTS = $(C_SOURCES:.c=.o) $(CPP_SOURCES:.cpp=.o)
 
 main maind: $(OBJECTS)
-	clang++ $(DEBUG) $^ -o main $(LINKFLAGS)
+	clang++ $(DEBUG) $^ -o main.out $(LINKFLAGS)
 
 %.o: %.cpp
 	clang++ $(OPT) $(INCLUDES) -c $^ -o $@

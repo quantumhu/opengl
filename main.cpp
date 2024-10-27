@@ -6,10 +6,13 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-// #include <glm/gtx/string_cast.hpp>  // for glm::to_string
+#include <glm/gtx/quaternion.hpp>
+#include <glm/gtx/string_cast.hpp>  // for glm::to_string
 
 #include <iostream>
 #include <vector>
+#include <cassert>
+#include <cstdlib>
 
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
@@ -49,12 +52,17 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 
 namespace Camera
 {
-    glm::vec3 pos = glm::vec3(0.0f, 0.0f, 5.0f);
+    glm::vec3 pos = glm::vec3(0.0f, 0.0f, 3.0f);
     glm::vec3 frontVec = glm::vec3(0.0f, 0.0f, -1.0f);
     glm::vec3 upVec = glm::vec3(0.0f, 1.0f, 0.0f);
-    const float speed = 2.5f;
-    float zoom_level = 45.0f;
+
+    glm::vec3 direction = glm::vec3(0.0f);
+
+    const float speed = 3.0f;
     const float window_ratio = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT;
+    
+    float zoom_level = 45.0f;
+    bool fps_movement = false;
 
     glm::mat4 projectionMatrix = glm::perspective(glm::radians(zoom_level), window_ratio, 0.1f, 100.0f);
 
@@ -62,14 +70,54 @@ namespace Camera
     {
         static double lastX = xpos;
         static double lastY = ypos;
-        static float sensitivityY = 0.003f;
+        static float sensitivityY = 0.1f;
         static float sensitivityX = sensitivityY / window_ratio;
+        
+        // 0 degree yaw is 1x, 0z
+        // 90 degree is 0x, 1z
+        static float yaw = 0.0f;
+        static float pitch = 0.0f;
+        static bool start_yaw_calculated = false;
+        if (!start_yaw_calculated)
+        {
+            // needs to be unit vector in x or z direction
+            bool x_conforms = fabs(frontVec.x) == 1.0f;
+            bool z_conforms = fabs(frontVec.z) == 1.0f;
+            assert(x_conforms ^ z_conforms);
+            start_yaw_calculated = true;
 
-        frontVec += glm::vec3(
-                              (xpos - lastX) * sensitivityX,
-                              (lastY - ypos) * sensitivityY, 
-                              0
-                             );
+            if (x_conforms)
+            {
+                if (frontVec.x > 0.0f) yaw = 0.0f;
+                else yaw = 180.0f;
+            }
+            else
+            {
+                if (frontVec.z > 0.0f) yaw = 90.0f;
+                else yaw = 270.0f;
+            }
+        }
+        
+        yaw += (xpos - lastX) * sensitivityX;
+        pitch += (lastY - ypos) * sensitivityY;
+        
+        pitch = glm::clamp(pitch, -89.9f, 89.9f);
+
+        // std::cout << "Yaw: " << yaw << ", Pitch: " << pitch << std::endl;
+
+        frontVec = glm::vec3(
+                             cos(glm::radians(yaw)),
+                             sin(glm::radians(pitch)),
+                             sin(glm::radians(yaw))
+                            );
+
+        // std::cout << "frontVec    " << glm::to_string(frontVec) << std::endl;
+
+        // frontVec += (glm::vec3(
+        //                       cos(glm::radians(yaw)) * cos(glm::radians(pitch)),
+        //                       sin(glm::radians(pitch)),
+        //                       sin(glm::radians(yaw)) * cos(glm::radians(pitch))
+        //                      ));
         lastX = xpos;
         lastY = ypos;
     }
@@ -90,12 +138,30 @@ namespace Camera
 
     glm::mat4 get_view_matrix()
     {
+        // glm::quat q = glm::quatLookAt(glm::normalize(frontVec), upVec);
+        // return glm::translate(glm::toMat4(q), -pos);
         return glm::lookAt(pos, pos + frontVec, upVec);
+    }
+
+    void toggle_fps_movement(bool enabled)
+    {
+        fps_movement = enabled;
     }
 
     void W(float deltaTime)
     {
-        pos += speed * deltaTime * frontVec;
+        glm::vec3 moveVec;
+        if (!fps_movement)
+        {
+            moveVec = glm::normalize(frontVec);
+        }
+        else
+        {
+            moveVec = glm::normalize(glm::vec3(frontVec.x, 0, frontVec.z));
+        }
+        // std::cout << "frontVec   " << glm::to_string(moveVec) << std::endl;
+        pos += speed * deltaTime * moveVec;
+        // std::cout << "pos   " << glm::to_string(pos) << std::endl;
     }
 
     void A(float deltaTime)
@@ -105,7 +171,16 @@ namespace Camera
 
     void S(float deltaTime)
     {
-        pos -= speed * deltaTime * frontVec;
+        glm::vec3 moveVec;
+        if (!fps_movement)
+        {
+            moveVec = glm::normalize(frontVec);
+        }
+        else
+        {
+            moveVec = glm::normalize(glm::vec3(frontVec.x, 0, frontVec.z));
+        }
+        pos -= speed * deltaTime * moveVec;
     }
 
     void D(float deltaTime)
@@ -318,6 +393,8 @@ int main()
 {
     GLFWwindow *window = window_setup();
     if (window == nullptr) return 1;
+
+    // Camera::toggle_fps_movement(true);
 
     float vertices[] = {
         -0.5f, -0.5f, -0.5f, 0.0f, 0.0f,

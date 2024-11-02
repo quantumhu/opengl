@@ -2,5 +2,5 @@
 
 ```
 cd opengl
-make main && ./main.out
+make && ./build/main
 ```

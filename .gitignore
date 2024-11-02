@@ -1,7 +1,4 @@
 .DS_Store
 .vscode
 
-*.o
-*.dylib
-*.dSYM
-*.out
+build/*

@@ -1,25 +1,35 @@
-main:  DEBUG = 
-maind: DEBUG = -v
+DEBUG = 
+# DEBUG = -v
 
-INCLUDES = -I./glad/include -I./glfw-3.4/include -I./include
-OPT = -Wall -Wextra -g
-LINKFLAGS = -L./glfw-3.4/lib-arm64/ -lglfw.3 -rpath ./glfw-3.4/lib-arm64/
+INCLUDES = -I./include/glad -I./include
+OPT = -Wall -Wextra -g -Wno-deprecated-declarations
+LINKFLAGS = -L./lib/glfw-3.4/lib-arm64/ -lglfw.3 -rpath ./lib/glfw-3.4/lib-arm64/
 
-C_SOURCES = glad.c
-CPP_SOURCES = main.cpp stb_image.cpp
+SRC_DIR   = src
+BUILD_DIR = build
+EXE       = $(BUILD_DIR)/main
 
-OBJECTS = $(C_SOURCES:.c=.o) $(CPP_SOURCES:.cpp=.o)
+C_SOURCES   = $(wildcard $(SRC_DIR)/*.c)
+CPP_SOURCES = $(wildcard $(SRC_DIR)/*.cpp)
 
-main maind: $(OBJECTS)
-	clang++ $(DEBUG) $^ -o main.out $(LINKFLAGS)
+C_OBJECTS   = $(C_SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+CPP_OBJECTS = $(CPP_SOURCES:$(SRC_DIR)/%.cpp=$(BUILD_DIR)/%.o)
 
-%.o: %.cpp
+all: $(EXE)
+
+$(EXE): $(C_OBJECTS) $(CPP_OBJECTS)
+	clang++ $(DEBUG) $^ -o $@ $(LINKFLAGS)
+
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp | $(BUILD_DIR)
 	clang++ $(OPT) $(INCLUDES) -c $^ -o $@
 
-%.o: %.c
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	clang $(OPT) $(INCLUDES) -c $^ -o $@
 
+$(BUILD_DIR):
+	mkdir -p $@
+
 clean:
-	rm $(OBJECTS) main
+	rm -rf $(BUILD_DIR)
 
 .PHONY: clean

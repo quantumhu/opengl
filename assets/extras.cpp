@@ -43,3 +43,27 @@
         //                       sin(glm::radians(pitch)),
         //                       sin(glm::radians(yaw)) * cos(glm::radians(pitch))
         //                      ));
+
+
+        // "out vec3 ourColor;\n"
+        // "out vec2 TexCoord;\n"
+
+// vertex shader is special because it receives vertex data as its input
+// to define how the vertex data is organized, we specify location
+// setting the location in GLSL directly saves OpenGL some work of figuring it out with `glGetAttribLocation`
+
+/*
+const char *fragmentShaderSource = "#version 330 core\n"
+        "out vec4 FragColor;\n"
+        "in vec2 TexCoord;\n"
+        "uniform sampler2D texture1;\n"
+        "uniform sampler2D texture2;\n"
+        "uniform float mixU;\n"
+        "void main()\n"
+        "{\n"
+        "  FragColor = mix(texture(texture1, TexCoord), texture(texture2, vec2(-TexCoord.x, TexCoord.y)), mixU);\n"   // value of 0.2 returns 20% of the second
+        "}";
+*/
+
+        // glm::quat q = glm::quatLookAt(glm::normalize(frontVec), upVec);
+        // return glm::translate(glm::toMat4(q), -pos);

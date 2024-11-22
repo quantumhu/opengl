@@ -7,6 +7,7 @@ LINKFLAGS = -L./lib/glfw-3.4/lib-arm64/ -lglfw.3 -rpath ./lib/glfw-3.4/lib-arm64
 
 SRC_DIR   = src
 BUILD_DIR = build
+OBJ_MODEL_DIR = assets
 EXE       = $(BUILD_DIR)/main
 
 C_SOURCES   = $(wildcard $(SRC_DIR)/*.c)
@@ -28,6 +29,9 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 
 $(BUILD_DIR):
 	mkdir -p $@
+
+3dobjs:
+	python3 src/convert_to_vertices.py --search-path $(OBJ_MODEL_DIR) --cpp-output-path $(SRC_DIR) --header-output-path include -z
 
 clean:
 	rm -rf $(BUILD_DIR)

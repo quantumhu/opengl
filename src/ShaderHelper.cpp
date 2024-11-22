@@ -87,16 +87,19 @@ int ShaderHelper::get_uniform_location(const char *name)
 
 void ShaderHelper::set_uniform(const char *name, GLint i)
 {
+    use();
     glUniform1i(get_uniform_location(name), i);
 }
 
 void ShaderHelper::set_uniform(const char *name, GLfloat f)
 {
+    use();
     glUniform1f(get_uniform_location(name), f);
 }
 
 void ShaderHelper::set_uniform(const char *name, GLfloat f1, GLfloat f2, GLfloat f3)
 {
+    use();
     glUniform3f(get_uniform_location(name), f1, f2, f3);
 }
 
@@ -107,6 +110,7 @@ void ShaderHelper::set_uniform(const char *name, glm::vec3 vec3)
 
 void ShaderHelper::set_uniform_matrix4(const char *name, GLsizei count, GLboolean transpose, const GLfloat *value)
 {
+    use();
     glUniformMatrix4fv(get_uniform_location(name), count, transpose, value);
 }
 

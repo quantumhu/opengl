@@ -13,8 +13,8 @@ namespace Camera {
     extern glm::mat4 projectionMatrix;
 
     extern void set_window_ratio(float width, float height);
+    extern void setup_hud(glm::vec3 lightPos, glm::vec3 lightColour);
     extern void draw_hud();
-    extern void setup_hud();
     extern void mouse_callback(GLFWwindow* window, double xpos, double ypos);
     extern void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
     extern glm::mat4 get_view_matrix();

@@ -15,15 +15,10 @@
 float g_mix_percent = 0.2f;
 glm::vec3 g_lightPos = glm::vec3(1.2f, 1.0f, 2.0f);
 
-// vertex shader is special because it receives vertex data as its input
-// to define how the vertex data is organized, we specify location
-// setting the location in GLSL directly saves OpenGL some work of figuring it out with `glGetAttribLocation`
 const char *vertexShaderSource = "#version 330 core\n"
         "layout (location = 0) in vec3 aPos;\n"
         "layout (location = 1) in vec3 aNormal;\n"
         "layout (location = 2) in vec2 aTexCoord;\n"
-        // "out vec3 ourColor;\n"
-        // "out vec2 TexCoord;\n"
         "out vec3 Normal;\n"
         "out vec3 FragPos;\n"
         "uniform mat4 model;\n"
@@ -35,19 +30,6 @@ const char *vertexShaderSource = "#version 330 core\n"
         "  Normal = aNormal;\n"
         "  FragPos = vec3(model * vec4(aPos, 1.0));\n"
         "}";
-
-/*
-const char *fragmentShaderSource = "#version 330 core\n"
-        "out vec4 FragColor;\n"
-        "in vec2 TexCoord;\n"
-        "uniform sampler2D texture1;\n"
-        "uniform sampler2D texture2;\n"
-        "uniform float mixU;\n"
-        "void main()\n"
-        "{\n"
-        "  FragColor = mix(texture(texture1, TexCoord), texture(texture2, vec2(-TexCoord.x, TexCoord.y)), mixU);\n"   // value of 0.2 returns 20% of the second
-        "}";
-*/
 
 const char *fragment2ShaderSource = "#version 330 core\n"
         "in vec3 Normal;\n"
@@ -287,7 +269,7 @@ int main()
     lightsh.add_shader(GL_FRAGMENT_SHADER, &lightSourceFragmentShaderSource);
     lightsh.link_shaders();
 
-    // Camera::setup_hud();
+    Camera::setup_hud(g_lightPos, glm::vec3(1.0f));
 
     glEnable(GL_DEPTH_TEST);
 
@@ -331,7 +313,7 @@ int main()
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);
 
-        // Camera::draw_hud();
+        Camera::draw_hud();
 
         glfwSwapBuffers(window);
         glfwPollEvents();
